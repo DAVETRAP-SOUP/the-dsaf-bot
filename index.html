@@ -1,0 +1,136 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>My First AI</title>
+
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@latest/dist/teachablemachine-image.min.js"></script>
+
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      text-align: center;
+      background: #eee8ff;
+      color: #30234b;
+      padding: 30px 15px;
+    }
+
+    button {
+      background: #7455db;
+      color: white;
+      border: none;
+      padding: 14px 24px;
+      border-radius: 12px;
+      font-size: 18px;
+      cursor: pointer;
+    }
+
+    #results {
+      margin: 20px auto;
+      max-width: 400px;
+    }
+
+    .result {
+      background: white;
+      padding: 12px;
+      margin: 8px;
+      border-radius: 10px;
+    }
+
+    #camera {
+      margin: 20px auto;
+    }
+  </style>
+</head>
+
+<body>
+  <h1>🤖 My First AI</h1>
+  <p>Show me something and see what I recognise!</p>
+
+  <button id="start">Start my AI</button>
+  <p id="status">Ready to start!</p>
+  <div id="camera"></div>
+  <div id="results"></div>
+
+  <script>
+    const MODEL_URL = "./";
+
+    const startButton = document.getElementById("start");
+    const statusText = document.getElementById("status");
+    const camera = document.getElementById("camera");
+    const results = document.getElementById("results");
+
+    let model;
+    let webcam;
+    let running = false;
+
+    startButton.addEventListener("click", startAI);
+
+    async function startAI() {
+      if (running) return;
+
+      startButton.disabled = true;
+      statusText.textContent = "Loading my AI...";
+
+      try {
+        model = await tmImage.load(
+          MODEL_URL + "model.json",
+          MODEL_URL + "metadata.json"
+        );
+
+        webcam = new tmImage.Webcam(280, 280, true);
+        await webcam.setup();
+        await webcam.play();
+
+        camera.replaceChildren(webcam.canvas);
+
+        for (let i = 0; i < model.getTotalClasses(); i++) {
+          const item = document.createElement("div");
+          item.className = "result";
+          results.appendChild(item);
+        }
+
+        running = true;
+        statusText.textContent = "AI is running!";
+        startButton.textContent = "AI is on!";
+        predictLoop();
+
+      } catch (error) {
+        statusText.textContent =
+          "Could not start: " + error.message;
+        startButton.disabled = false;
+      }
+    }
+
+    async function predictLoop() {
+      if (!running) return;
+
+      try {
+        webcam.update();
+        const predictions = await model.predict(webcam.canvas);
+
+        predictions.sort(
+          (a, b) => b.probability - a.probability
+        );
+
+        predictions.forEach((prediction, i) => {
+          const item = results.children[i];
+          item.textContent =
+            prediction.className + ": " +
+            (prediction.probability * 100).toFixed(1) + "%";
+        });
+      } catch (error) {
+        statusText.textContent = "Prediction error: " + error.message;
+        running = false;
+        startButton.disabled = false;
+        return;
+      }
+
+      requestAnimationFrame(predictLoop);
+    }
+  </script>
+</body>
+</html>
